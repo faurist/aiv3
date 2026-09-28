@@ -1,0 +1,12 @@
+const chat=document.querySelector("#chat"),form=document.querySelector("#form"),input=document.querySelector("#input"),status=document.querySelector("#status");
+let messages=[],docs=[];
+function add(r,t){const d=document.createElement("div");d.className="msg "+(r==="user"?"u":"a");d.textContent=t;chat.appendChild(d);chat.scrollTop=chat.scrollHeight}
+async function stat(){try{const d=await fetch("/api/status").then(r=>r.json());status.textContent=`Gemini ${d.gemini?"✓":"✗"} · web ${d.web?"✓":"✗"} · memória ✓`}catch{status.textContent="Szerverhiba"}}
+form.onsubmit=async e=>{e.preventDefault();const t=input.value.trim();if(!t)return;add("user",t);messages.push({role:"user",content:t});input.value="";status.textContent="Ügynök dolgozik...";try{const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages,documentIds:docs})});const d=await r.json();if(!r.ok)throw Error(d.error);add("assistant",d.answer);messages.push({role:"assistant",content:d.answer})}catch(e){add("assistant","❌ "+e.message)}finally{stat()}};
+document.querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{input.value=b.dataset.q;input.focus()});
+document.querySelector("#clear").onclick=()=>{messages=[];chat.innerHTML='<div class="msg a">Beszélgetés törölve.</div>'};
+document.querySelector("#clearMemory").onclick=async()=>{if(confirm("Törlöd a tartós memóriát?")){await fetch("/api/memory",{method:"DELETE"});add("assistant","A tartós memória törölve.")}};
+document.querySelector("#file").onchange=async e=>{const f=e.target.files[0];if(!f)return;const content=await f.text();const r=await fetch("/api/upload",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:f.name,content})});const d=await r.json();if(d.ok){docs.push(d.id);add("assistant",`📄 Feltöltve: ${f.name}`)}else add("assistant","❌ "+d.error)};
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js");
+let deferred;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferred=e;document.querySelector("#install").hidden=false});document.querySelector("#install").onclick=async()=>{if(deferred){deferred.prompt();deferred=null}};
+stat();
